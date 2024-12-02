@@ -3,6 +3,7 @@ import torch
 from torch.utils.flop_counter import FlopCounterMode
 from torchvision.models import resnet18
 from dataclasses import dataclass
+from torchinfo import summary
 from collections import defaultdict
 
 @dataclass
@@ -87,8 +88,11 @@ class ModelAnalyzer:
         with flop_counter:
             self.model(inp)
         
-        for module_name, flops in flop_counter.get_flop_counts().items():
-            self.layer_stats[module_name].flops = flops
+        for module_name, flop_dict in flop_counter.get_flop_counts().items():
+            for (op_name, op_flops) in flop_dict.items():
+                print(f"{module_name}::{op_name}: {op_flops}")
+
+            self.layer_stats[module_name].flops = flop_dict 
         
         total_flops = flop_counter.get_total_flops()
         total_reads = sum(stats.reads for stats in self.layer_stats.values())
@@ -145,14 +149,18 @@ def validate_model(model: torch.nn.Module):
 
 # Example usage
 if __name__ == "__main__":
-    model = torch.compile(resnet18(weights='IMAGENET1K_V1'))
+    model = resnet18(weights='IMAGENET1K_V1')
+    model = model.eval()
+    summary(model, input_size=(1,3,224,224))
 
     validate_model(model)
 
     analyzer = ModelAnalyzer(model)
     stats = analyzer.analyze((1, 3, 224, 224), batch_time_seconds=0.016)  # ~60 FPS
+
+    print("\n STATS: ", stats)
     
-    print(f"Model Analysis Results:")
+    print(f"\nModel Analysis Results:")
     print(f"----------------------")
     print(f"Total FLOPs: {stats.gflops:.2f} GFLOPs")
     print(f"Memory Reads: {format_bytes(stats.total_reads)}")
