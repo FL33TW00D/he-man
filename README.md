@@ -48,4 +48,8 @@ Some of the best models to investigate might include:
 ![image](https://github.com/user-attachments/assets/ebe74a99-5860-44bc-bd64-90a0e79bd7d9)
 
 
+## Tooling
 
+- CUDA memory stats: https://pytorch.org/docs/stable/generated/torch.cuda.memory_stats.html
+- FlopCounterMode
+- Calculating MACs and memory reads by hand
