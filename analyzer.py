@@ -5,6 +5,7 @@ from torchvision.models import resnet18
 from dataclasses import dataclass
 from torchinfo import summary
 from collections import defaultdict
+import matplotlib.pyplot as plt
 
 @dataclass
 class LayerStats:
@@ -83,14 +84,16 @@ class ModelAnalyzer:
             hooks.append(module.register_forward_hook(count_memory_hook))
         
         inp = inp if isinstance(inp, torch.Tensor) else torch.randn(inp)
-        flop_counter = FlopCounterMode(mods=self.model, display=False, depth=None)
+        flop_counter = FlopCounterMode(mods=self.model, display=True, depth=None)
         
         with flop_counter:
             self.model(inp)
         
         for module_name, flop_dict in flop_counter.get_flop_counts().items():
+            print(f"MOD: {module_name} FLOPS: {flop_dict}")
             for (op_name, op_flops) in flop_dict.items():
-                print(f"{module_name}::{op_name}: {op_flops}")
+                #print(f"{module_name}::{op_name}: {op_flops}")
+                pass
 
             self.layer_stats[module_name].flops = flop_dict 
         
@@ -112,6 +115,35 @@ class ModelAnalyzer:
             gflops=gflops,
             layer_stats=dict(self.layer_stats)
         )
+
+def plot_per_module_stats(stats: ModelStats):
+    """Plot per module FLOPs and memory access statistics"""
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    
+    module_names = list(stats.layer_stats.keys())
+    flops = [stats.layer_stats[name].flops for name in module_names]
+    reads = [stats.layer_stats[name].reads for name in module_names]
+    writes = [stats.layer_stats[name].writes for name in module_names]
+
+    print("Module Names: ", module_names)
+    print("FLOPS: ", flops)
+    print("Reads: ", reads)
+    print("Writes: ", writes)
+    
+    ax[0].barh(module_names, flops, color='skyblue', label='FLOPs')
+    ax[0].barh(module_names, reads, color='orange', label='Memory Reads')
+    ax[0].barh(module_names, writes, color='green', label='Memory Writes')
+    ax[0].set_xlabel("Count")
+    ax[0].set_title("Per Module FLOPs and Memory Access")
+    ax[0].legend()
+    
+    ai = [stats.layer_stats[name].arithmetic_intensity for name in module_names]
+    ax[1].barh(module_names, ai, color='salmon')
+    ax[1].set_xlabel("FLOPs/byte")
+    ax[1].set_title("Per Module Arithmetic Intensity")
+    
+    plt.tight_layout()
+    plt.show()
 
 def format_bytes(bytes: int) -> str:
     """Format bytes into human readable string"""
@@ -167,3 +199,5 @@ if __name__ == "__main__":
     print(f"Memory Writes: {format_bytes(stats.total_writes)}")
     print(f"Required Memory Bandwidth: {stats.bandwidth_gb_s:.2f} GB/s")
     print(f"Overall Arithmetic Intensity: {stats.overall_arithmetic_intensity:.2f} FLOPs/byte")
+
+    plot_per_module_stats(stats)
