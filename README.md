@@ -2,6 +2,7 @@
 
 > **Mission Statement** \
 > Understanding the power usage and "compute profile" of modern transformers suited for the edge.
+> Fundamental Q: given a model, what hardware requirements do I need (FLOPS + GB/s bandwidth) to run it
 
 ## What is a compute profile?
 
