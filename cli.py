@@ -33,9 +33,19 @@ def main():
         help="The number of iterations for the model. Must be a positive integer.",
     )
 
+    parser.add_argument(
+        "--sample_rate_ms",
+        type=int,
+        default=50,
+        help="Sample rate for the energy profiling.",
+    )
+
     args = parser.parse_args()
     model_name = args.model
     model_iterations = args.model_iterations
+    sample_rate = args.sample_rate_ms
+    num_samples = 2
+    sample_duration = sample_rate * num_samples
 
     if model_name is not None and model_name not in model_names_list:
         raise Exception(
@@ -81,8 +91,8 @@ def main():
                 "ct_model.mlpackage", compute_units=compute_unit
             )
             ct_model.predict(coreml_dummy_input)  # Once before to "warm up" hardware
-            with Profiler(sample_duration=100, num_samples=2) as profiler:
-                for i in range(model_iterations):
+            with Profiler(sample_duration=sample_duration, num_samples=num_samples) as profiler:
+                for _ in range(model_iterations):
                     ct_model.predict(coreml_dummy_input)
             profile = profiler.get_profile()
             print(
