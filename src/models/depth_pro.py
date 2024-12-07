@@ -1,10 +1,7 @@
 from .model import Model
 
-import sys
-import os
 from typing import Union, List, Dict
 import warnings
-
 import torch
 from torchvision.transforms import Normalize
 from huggingface_hub import PyTorchModelHubMixin
@@ -15,6 +12,7 @@ from depth_pro.depth_pro import (
     MultiresConvDecoder,
 )
 import coremltools as ct
+
 
 class DepthProWrapper(DepthPro, PyTorchModelHubMixin):
     """Depth Pro network."""
@@ -77,66 +75,38 @@ class DepthProInvDepthNormalized(DepthProWrapper):
 
         return inverse_depth_normalized * 255.0
 
+
 class DepthPro(Model):
     def name():
         return "apple/DepthPro-mixin"
-    
+
     def __init__(self):
         super().__init__()
 
         depthpro_pytorch_inv_depth_norm = DepthProInvDepthNormalized.from_pretrained(
-            DepthPro.name()
+            "apple/DepthPro-mixin"
         )
         self.model = depthpro_pytorch_inv_depth_norm.eval()
 
-        self.cached_torch_trace = None
-        self.cached_coreml_model = None
+    def torch_example_input(
+        self,
+    ) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, torch.Tensor]]:
+        return (torch.rand((1, 3, 1536, 1536)),)
 
-    def torch_module(self) -> torch.nn.Module:
-        if self.cached_torch_trace:
-            return self.cached_torch_trace
-        
-        # There should be a function that does this in a with block, god only knows why I must suffer
-        # I belive it has something to do with this:
-        # https://stackoverflow.com/questions/75022490/pytorch-torch-no-grad-doesnt-affect-modules
-        original_grad_state = torch.is_grad_enabled()
-        torch.set_grad_enabled(False)
+    def coreml_inputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
+        return [
+            ct.ImageType(
+                name="image",
+                color_layout=ct.colorlayout.RGB,
+                shape=(1, 3, 1536, 1536),
+                scale=1 / 255.0,
+            ),
+        ]
 
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
-            traced_model = torch.jit.trace(self.model, (self.torch_example_input(),))
-            return traced_model
-        
-        torch.set_grad_enabled(original_grad_state)
-
-    def torch_example_input(self) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, torch.Tensor]]:
-        return torch.rand((1, 3, 1536, 1536))
-    
-    def coreml_model(self) -> ct.models.MLModel:
-        if self.cached_coreml_model:
-            return self.cached_coreml_model
-
-        ct_model = ct.convert(
-            self.torch_module(),
-            inputs=[
-                ct.ImageType(
-                    name="image",
-                    color_layout=ct.colorlayout.RGB,
-                    shape=(1, 3, 1536, 1536),
-                    scale=1 / 255.0,
-                ),
-            ],
-            outputs=[
-                ct.ImageType(
-                    name="normalizedInverseDepth",
-                    color_layout=ct.colorlayout.GRAYSCALE_FLOAT16,
-                )
-            ],
-            convert_to="mlprogram",
-            minimum_deployment_target=ct.target.iOS18,
-            compute_precision=ct.precision.FLOAT16,
-        )
-
-        self.cached_coreml_model = ct_model
-
-        return ct_model
+    def coreml_outputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
+        return [
+            ct.ImageType(
+                name="normalizedInverseDepth",
+                color_layout=ct.colorlayout.GRAYSCALE_FLOAT16,
+            )
+        ]
