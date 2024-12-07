@@ -58,6 +58,7 @@ def main():
         # coreml stuff
         print("Obtaining Core ML model...")
         ct_model = model.coreml_model()
+        ct_model.save("ct_model.mlpackage")
         print("Finished obtaining Core ML model.")
 
         # pip install git+https://github.com/FL33TW00D/wattkit.git@master#subdirectory=bindings/python
@@ -67,7 +68,8 @@ def main():
         model_iterations = 1
         for compute_unit, name in [(ct.ComputeUnit.CPU_ONLY, "cpu"), (ct.ComputeUnit.CPU_AND_GPU, "gpu"), (ct.ComputeUnit.CPU_AND_NE, "ane")]:
             print(f"Starting {name} power runtime analysis...")
-            ct_model.compute_unit = compute_unit
+            # I'm so sorry, It must happen https://github.com/apple/coremltools/issues/1849
+            ct_model = ct.models.MLModel("ct_model.mlpackage", compute_units=compute_unit)
             ct_model.predict(coreml_dummy_input) # Once before to "warm up" hardware
             with Profiler(sample_duration=100, num_samples=2) as profiler:
                 for i in range(model_iterations):
