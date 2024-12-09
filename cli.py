@@ -3,7 +3,7 @@
 from src.models.blip_caption import BlipCaption
 from src.models.depth_pro import DepthPro
 from src.models.fast_vit import FastVit
-from src.models.llama_3_2_1B import Llama321B
+from src.models.detr_resnet import DetrResnet
 from src.shared.runtime_analyzer import ModelRuntimeAnalyzer
 
 import argparse
@@ -12,7 +12,7 @@ from wattkit import Profiler
 
 
 def main():
-    models_list = [BlipCaption, DepthPro, FastVit, Llama321B]
+    models_list = [BlipCaption, DepthPro, FastVit, DetrResnet]
 
     parser = argparse.ArgumentParser(
         description="A CLI tool to work with predefined models."
