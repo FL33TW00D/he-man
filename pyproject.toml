@@ -16,9 +16,11 @@ dependencies = [
     "torchinfo>=1.8.0",
     "torchvision>=0.20.1",
     "transformers>=4.46.3",
+    "wattkit",
 ]
 
 [tool.uv.sources]
 depth-pro = { git = "https://github.com/greenrazer/ml-depth-pro", rev = "86b79e02402335109f81464d0a0b6e18cb9c003c" }
+wattkit = { git = "https://github.com/FL33TW00D/wattkit.git", subdirectory = "bindings/python", rev = "master" }
 
 

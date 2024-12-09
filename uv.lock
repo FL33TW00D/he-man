@@ -276,6 +276,7 @@ dependencies = [
     { name = "torchinfo" },
     { name = "torchvision" },
     { name = "transformers" },
+    { name = "wattkit" },
 ]
 
 [package.metadata]
@@ -291,6 +292,7 @@ requires-dist = [
     { name = "torchinfo", specifier = ">=1.8.0" },
     { name = "torchvision", specifier = ">=0.20.1" },
     { name = "transformers", specifier = ">=4.46.3" },
+    { name = "wattkit", git = "https://github.com/FL33TW00D/wattkit.git?subdirectory=bindings%2Fpython&rev=master" },
 ]
 
 [[package]]
@@ -1190,4 +1192,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ed/63/22ba4ebfe7430b76388e7cd448d5478814d3032121827c12a2cc287e2260/urllib3-2.2.3.tar.gz", hash = "sha256:e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9", size = 300677 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ce/d9/5f4c13cecde62396b0d3fe530a50ccea91e7dfc1ccf0e09c228841bb5ba8/urllib3-2.2.3-py3-none-any.whl", hash = "sha256:ca899ca043dcb1bafa3e262d73aa25c465bfb49e0bd9dd5d59f1d0acba2f8fac", size = 126338 },
+]
+
+[[package]]
+name = "wattkit"
+version = "0.1.0"
+source = { git = "https://github.com/FL33TW00D/wattkit.git?subdirectory=bindings%2Fpython&rev=master#f9b730a152a6c5f981f73fbb57efbd2e8756e814" }
+dependencies = [
+    { name = "coremltools" },
+    { name = "pillow" },
+    { name = "torch" },
+    { name = "torchvision" },
 ]
