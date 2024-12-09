@@ -76,8 +76,6 @@ def main():
         ct_model.save("ct_model.mlpackage")
         print("Finished obtaining Core ML model.")
 
-        # pip install git+https://github.com/FL33TW00D/wattkit.git@master#subdirectory=bindings/python
-        # .venv/bin/python cli.py --model apple/DepthPro-mixin
         coreml_dummy_input = model.coreml_example_input()
 
         for compute_unit, name in [
@@ -91,7 +89,9 @@ def main():
                 "ct_model.mlpackage", compute_units=compute_unit
             )
             ct_model.predict(coreml_dummy_input)  # Once before to "warm up" hardware
-            with Profiler(sample_duration=sample_duration, num_samples=num_samples) as profiler:
+            with Profiler(
+                sample_duration=sample_duration, num_samples=num_samples
+            ) as profiler:
                 for _ in range(model_iterations):
                     ct_model.predict(coreml_dummy_input)
             profile = profiler.get_profile()

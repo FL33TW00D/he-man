@@ -7,7 +7,8 @@ from PIL import Image
 import numpy as np
 import warnings
 
-class Model():
+
+class Model:
     def __init__(self):
         self.cached_torch_trace = None
         self.cached_coreml_model = None
@@ -69,34 +70,36 @@ class Model():
         inputs = {}
 
         ct_model = self.coreml_model()
-        
+
         try:
             spec = ct_model.get_spec()
         except AttributeError:
-            spec = ct_model.spec if hasattr(ct_model, 'spec') else ct_model
-        
+            spec = ct_model.spec if hasattr(ct_model, "spec") else ct_model
+
         for input_desc in spec.description.input:
             input_name = input_desc.name
-            
-            if hasattr(input_desc, 'type'):
-                if input_desc.type.HasField('imageType'):
+
+            if hasattr(input_desc, "type"):
+                if input_desc.type.HasField("imageType"):
                     image_type = input_desc.type.imageType
                     height = image_type.height
                     width = image_type.width
-                    
-                    if image_type.colorSpace == 0: # GRAYSCALE
+
+                    if image_type.colorSpace == 0:  # GRAYSCALE
                         channels = 1
-                    else: # Default to 3
+                    else:  # Default to 3
                         channels = 3
 
-                    noise_array = np.random.randint(0, 256, (height, width, channels), dtype=np.uint8)
+                    noise_array = np.random.randint(
+                        0, 256, (height, width, channels), dtype=np.uint8
+                    )
                     inputs[input_name] = Image.fromarray(noise_array)
-                elif input_desc.type.HasField('multiArrayType'):
+                elif input_desc.type.HasField("multiArrayType"):
                     shape = tuple(input_desc.type.multiArrayType.shape)
                     inputs[input_name] = np.random.randn(*shape)
                 else:
                     raise Exception(f"Could not determine input type for {input_name}")
             else:
                 raise Exception(f"Could not determine input type for {input_name}")
-        
+
         return inputs

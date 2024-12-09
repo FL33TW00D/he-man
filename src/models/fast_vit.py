@@ -23,24 +23,19 @@ class FastVit(Model):
     def torch_example_input(
         self,
     ) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, torch.Tensor]]:
-        img = Image.open(urlopen(
-            'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
-        ))
+        img = Image.open(
+            urlopen(
+                "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png"
+            )
+        )
 
         data_config = timm.data.resolve_model_data_config(self.model)
         transforms = timm.data.create_transform(**data_config, is_training=False)
 
         return (transforms(img).unsqueeze(0),)
-    
+
     def coreml_inputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
-        return [
-            ct.ImageType(name="image", shape=(1,3,256,256))
-        ]
+        return [ct.ImageType(name="image", shape=(1, 3, 256, 256))]
 
     def coreml_outputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
-        return [
-            ct.TensorType(
-                name="output_ids",
-                dtype=np.int32
-            )
-        ]
+        return [ct.TensorType(name="output_ids", dtype=np.int32)]
