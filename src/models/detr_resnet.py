@@ -6,13 +6,6 @@ import torchvision
 from transformers import AutoModelForImageSegmentation
 
 import coremltools as ct
-from coremltools.converters.mil import Builder as mb
-from coremltools.converters.mil import register_torch_op
-from coremltools.converters.mil.frontend.torch.torch_op_registry import (
-    _TORCH_OPS_REGISTRY,
-)
-from coremltools.converters.mil.frontend.torch.ops import _get_inputs
-from coremltools.converters.mil.mil import types
 
 
 def post_process_semantic_segmentation(logits, pred_masks, target_size=None):

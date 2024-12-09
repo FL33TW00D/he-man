@@ -1,9 +1,8 @@
-import numpy as np
 from .model import Model
 
+import numpy as np
 import torch
 import timm
-import warnings
 from typing import Union, List, Dict
 from urllib.request import urlopen
 from PIL import Image

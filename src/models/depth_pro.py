@@ -1,7 +1,6 @@
 from .model import Model
 
 from typing import Union, List, Dict
-import warnings
 import torch
 from torchvision.transforms import Normalize
 from huggingface_hub import PyTorchModelHubMixin

@@ -1,8 +1,7 @@
-import requests
 from .model import Model
+
+import requests
 import torch
-import timm
-import warnings
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from typing import Union, List, Dict
 from PIL import Image
