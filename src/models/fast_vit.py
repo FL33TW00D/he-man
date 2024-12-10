@@ -13,6 +13,9 @@ class FastVit(Model):
     def name():
         return "timm/fastvit_ma36.apple_in1k"
 
+    def recommended_iterations(self) -> int:
+        return 1000
+
     def __init__(self):
         super().__init__()
 

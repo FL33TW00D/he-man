@@ -17,6 +17,10 @@ class Model:
     def name() -> str:
         pass
 
+    @abstractmethod
+    def recommended_iterations(self) -> int:
+        pass
+
     def torch_module(self) -> torch.nn.Module:
         if self.cached_torch_trace:
             return self.cached_torch_trace

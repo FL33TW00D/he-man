@@ -79,11 +79,14 @@ class DepthPro(Model):
     def name():
         return "apple/DepthPro-mixin"
 
+    def recommended_iterations(self) -> int:
+        return 10
+    
     def __init__(self):
         super().__init__()
 
         depthpro_pytorch_inv_depth_norm = DepthProInvDepthNormalized.from_pretrained(
-            "apple/DepthPro-mixin"
+            DepthPro.name()
         )
         self.model = depthpro_pytorch_inv_depth_norm.eval()
 

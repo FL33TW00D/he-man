@@ -30,14 +30,17 @@ class BlipCaption(Model):
     def name():
         return "Salesforce/blip-image-captioning-base"
 
+    def recommended_iterations(self) -> int:
+        return 100
+    
     def __init__(self):
         super().__init__()
 
         self.processor = BlipProcessor.from_pretrained(
-            "Salesforce/blip-image-captioning-base"
+            BlipCaption.name()
         )
         self.raw_model = BlipForConditionalGeneration.from_pretrained(
-            "Salesforce/blip-image-captioning-base"
+            BlipCaption.name()
         )
         self.model = Wrapper(self.raw_model).eval()
 

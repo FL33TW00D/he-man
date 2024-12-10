@@ -50,11 +50,14 @@ class DetrResnet(Model):
     def name():
         return "facebook/detr-resnet-50-panoptic"
 
+    def recommended_iterations(self) -> int:
+        return 1000
+    
     def __init__(self):
         super().__init__()
 
         model = AutoModelForImageSegmentation.from_pretrained(
-            "facebook/detr-resnet-50-panoptic"
+            DetrResnet.name()
         )
         model.eval()
 
