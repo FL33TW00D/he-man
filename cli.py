@@ -18,6 +18,7 @@ from shutil import copytree
 import time
 import torch
 
+
 def main():
     models_list = [
         BlipCaption,
@@ -35,7 +36,7 @@ def main():
     model_names_list = [x.name() for x in models_list]
     parser.add_argument(
         "--models",
-        nargs='*',
+        nargs="*",
         type=str,
         default=None,
         help=f"The models to use. Choices: {', '.join(model_names_list)}",
@@ -66,25 +67,25 @@ def main():
             if m is not None and m not in model_names_list:
                 raise Exception(
                     f"Error: '{m}' is not supported. Valid choices are: {', '.join(model_names_list)}."
-            )
+                )
 
     torch.set_grad_enabled(False)
 
     output_data = [
         [
-        "Model",
-        "Compute Unit",
-        "Total FLOPs",
-        "Total Reads",
-        "Total Writes",
-        "Model Iterations",
-        "Total CPU Energy",
-        "Total GPU Energy",
-        "Total ANE Energy",
-        "Average CPU Power",
-        "Average GPU Power",
-        "Average ANE Power",
-        "Total Duration",
+            "Model",
+            "Compute Unit",
+            "Total FLOPs",
+            "Total Reads",
+            "Total Writes",
+            "Model Iterations",
+            "Total CPU Energy",
+            "Total GPU Energy",
+            "Total ANE Energy",
+            "Average CPU Power",
+            "Average GPU Power",
+            "Average ANE Power",
+            "Total Duration",
         ]
     ]
     start_time = time.time()
@@ -125,7 +126,11 @@ def main():
             ct_model = ct.models.CompiledMLModel(
                 "ct_model.mlmodelc", compute_units=compute_unit
             )
-            model_iterations = model.recommended_iterations() if args.model_iterations is None else args.model_iterations
+            model_iterations = (
+                model.recommended_iterations()
+                if args.model_iterations is None
+                else args.model_iterations
+            )
             ct_model.predict(coreml_dummy_input)  # Once before to "warm up" hardware
             with Profiler(
                 sample_duration=sample_duration, num_samples=num_samples
