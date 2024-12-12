@@ -1,9 +1,0 @@
-Model,Compute Unit,Total FLOPs,Total Reads,Total Writes,Model Iterations,Total CPU Energy,Total GPU Energy,Total ANE Energy,Average CPU Power,Average GPU Power,Average ANE Power,Total Duration
-distilbert/distilbert-base-uncased-finetuned-sst-2-english,CPU,10872818688,2048,8,1000,81410,0,0,7168,0,0,11358
-distilbert/distilbert-base-uncased-finetuned-sst-2-english,CPU + GPU,10872818688,2048,8,1000,4840,31753,0,648,4273,0,7456
-distilbert/distilbert-base-uncased-finetuned-sst-2-english,CPU + ANE,10872818688,2048,8,1000,2331,0,8421,1359,0,4908,1716
-distilbert/distilbert-base-uncased-finetuned-sst-2-english,CPU + GPU + ANE,10872818688,2048,8,1000,2336,0,8354,1361,0,4865,1717
-distilbert/distilbert-base-uncased-finetuned-sst-2-english(ANE),CPU,11174808576,2048,8,1000,58523,339,0,12445,72,0,4702
-distilbert/distilbert-base-uncased-finetuned-sst-2-english(ANE),CPU + GPU,11174808576,2048,8,1000,30312,50086,0,5442,8977,0,5580
-distilbert/distilbert-base-uncased-finetuned-sst-2-english(ANE),CPU + ANE,11174808576,2048,8,1000,4073,158,7858,2564,99,4931,1589
-distilbert/distilbert-base-uncased-finetuned-sst-2-english(ANE),CPU + GPU + ANE,11174808576,2048,8,1000,18858,52078,0,3587,9880,0,5272
