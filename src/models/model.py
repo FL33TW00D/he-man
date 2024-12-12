@@ -53,7 +53,6 @@ class Model:
             self.torch_module(),
             inputs=self.coreml_inputs(),
             outputs=self.coreml_outputs(),
-            convert_to="mlprogram",
             minimum_deployment_target=ct.target.iOS18,
             compute_precision=ct.precision.FLOAT16,
         )

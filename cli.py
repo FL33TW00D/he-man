@@ -14,14 +14,16 @@ import argparse
 import csv
 import coremltools as ct
 from wattkit import Profiler
-
+from shutil import copytree
+import time
+import torch
 
 def main():
     models_list = [
-        BlipCaption,
-        DepthPro,
-        FastVit,
-        DetrResnet,
+        #BlipCaption,
+        #DepthPro,
+        #FastVit,
+        #DetrResnet,
         DistilBert,
         DistilBertANE,
     ]
@@ -63,10 +65,26 @@ def main():
             f"Error: '{args.model}' is not supported. Valid choices are: {', '.join(model_names_list)}."
         )
 
-    import torch
     torch.set_grad_enabled(False)
 
-    output_data = []
+    output_data = [
+        [
+        "Model",
+        "Compute Unit",
+        "Total FLOPs",
+        "Total Reads",
+        "Total Writes",
+        "Model Iterations",
+        "Total CPU Energy",
+        "Total GPU Energy",
+        "Total ANE Energy",
+        "Average CPU Power",
+        "Average GPU Power",
+        "Average ANE Power",
+        "Total Duration",
+        ]
+    ]
+    start_time = time.time()
     for m in models_list:
         if model_name is not None and model_name != m.name():
             continue
@@ -88,7 +106,8 @@ def main():
         # coreml stuff
         print("Obtaining Core ML model...")
         ct_model = model.coreml_model()
-        ct_model.save("ct_model.mlpackage")
+        compiled_model_path = ct_model.get_compiled_model_path()
+        copytree(compiled_model_path, "ct_model.mlmodelc", dirs_exist_ok=True)
         print("Finished obtaining Core ML model.")
 
         coreml_dummy_input = model.coreml_example_input()
@@ -97,11 +116,11 @@ def main():
             (ct.ComputeUnit.CPU_ONLY, "CPU"),
             (ct.ComputeUnit.CPU_AND_GPU, "CPU + GPU"),
             (ct.ComputeUnit.CPU_AND_NE, "CPU + ANE"),
+            (ct.ComputeUnit.ALL, "CPU + GPU + ANE"),
         ]:
             print(f"Starting {name} power runtime analysis...")
-            # I'm so sorry, It must happen https://github.com/apple/coremltools/issues/1849
-            ct_model = ct.models.MLModel(
-                "ct_model.mlpackage", compute_units=compute_unit
+            ct_model = ct.models.CompiledMLModel(
+                "ct_model.mlmodelc", compute_units=compute_unit
             )
             model_iterations = model.recommended_iterations() if args.model_iterations is None else args.model_iterations
             ct_model.predict(coreml_dummy_input)  # Once before to "warm up" hardware
@@ -134,6 +153,8 @@ def main():
             print(f"Finished {name} power runtime analysis.")
 
         print(f"Finished analyzing {m.name()}.")
+
+    print(f"Total analysis time: {time.time() - start_time} seconds.")
 
     with open("output.csv", mode="w", newline="") as file:
         writer = csv.writer(file)

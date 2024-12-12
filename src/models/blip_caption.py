@@ -3,7 +3,7 @@ from .model import Model
 import requests
 import torch
 from transformers import BlipProcessor, BlipForConditionalGeneration
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Tuple
 from PIL import Image
 import numpy as np
 import coremltools as ct
@@ -27,7 +27,7 @@ class Wrapper(torch.nn.Module):
 
 
 class BlipCaption(Model):
-    def name():
+    def name() -> str:
         return "Salesforce/blip-image-captioning-base"
 
     def recommended_iterations(self) -> int:
@@ -46,7 +46,7 @@ class BlipCaption(Model):
 
     def torch_example_input(
         self,
-    ) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, torch.Tensor]]:
+    ) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, torch.Tensor], Tuple[torch.Tensor]]:
         img_url = (
             "https://storage.googleapis.com/sfr-vision-language-research/BLIP/demo.jpg"
         )
