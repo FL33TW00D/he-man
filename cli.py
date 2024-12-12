@@ -20,10 +20,10 @@ import torch
 
 def main():
     models_list = [
-        #BlipCaption,
-        #DepthPro,
-        #FastVit,
-        #DetrResnet,
+        BlipCaption,
+        DepthPro,
+        FastVit,
+        DetrResnet,
         DistilBert,
         DistilBertANE,
     ]
@@ -34,10 +34,11 @@ def main():
 
     model_names_list = [x.name() for x in models_list]
     parser.add_argument(
-        "--model",
+        "--models",
+        nargs='*',
         type=str,
         default=None,
-        help=f"The model to use. Choices: {', '.join(model_names_list)}",
+        help=f"The models to use. Choices: {', '.join(model_names_list)}",
     )
 
     parser.add_argument(
@@ -55,15 +56,17 @@ def main():
     )
 
     args = parser.parse_args()
-    model_name = args.model
+    model_names = args.models
     sample_rate = args.sample_rate_ms
     num_samples = 2
     sample_duration = sample_rate * num_samples
 
-    if model_name is not None and model_name not in model_names_list:
-        raise Exception(
-            f"Error: '{args.model}' is not supported. Valid choices are: {', '.join(model_names_list)}."
-        )
+    if model_names is not None:
+        for m in model_names:
+            if m is not None and m not in model_names_list:
+                raise Exception(
+                    f"Error: '{m}' is not supported. Valid choices are: {', '.join(model_names_list)}."
+            )
 
     torch.set_grad_enabled(False)
 
@@ -86,7 +89,7 @@ def main():
     ]
     start_time = time.time()
     for m in models_list:
-        if model_name is not None and model_name != m.name():
+        if model_names is not None and m.name() not in model_names:
             continue
 
         print(f"Analyzing {m.name()}...")
@@ -156,7 +159,7 @@ def main():
 
     print(f"Total analysis time: {time.time() - start_time} seconds.")
 
-    with open("output.csv", mode="w", newline="") as file:
+    with open("data/output.csv", mode="w", newline="") as file:
         writer = csv.writer(file)
         writer.writerows(output_data)
 
