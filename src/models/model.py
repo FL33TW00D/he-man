@@ -7,11 +7,23 @@ from PIL import Image
 import numpy as np
 import warnings
 
+class ModelContextManager:
+    def __init__(self, model):
+        self.inside_context = False
+        self.model = model
+    
+    def __enter__(self):
+        self.inside_context = True
+
+    def __exit__(self, *_):
+        self.inside_context = False
 
 class Model:
     def __init__(self):
         self.cached_torch_trace = None
+        self.cached_coreml_input = None
         self.cached_coreml_model = None
+        self.context_manager = None
 
     @abstractmethod
     def name() -> str:
@@ -70,6 +82,9 @@ class Model:
         pass
 
     def coreml_example_input(self) -> Dict[str, Any]:
+        if self.cached_coreml_input:
+            return self.cached_coreml_input
+        
         inputs = {}
 
         ct_model = self.coreml_model()
@@ -105,4 +120,41 @@ class Model:
             else:
                 raise Exception(f"Could not determine input type for {input_name}")
 
+        self.cached_coreml_input = inputs
+
         return inputs
+    
+    def setup_run(
+        self, 
+        compute_unit=ct.ComputeUnit.ALL
+    ) -> ModelContextManager:
+        coreml_dummy_input = self.coreml_example_input()
+        compiled_model_path = self.coreml_model().get_compiled_model_path()
+        ct_model = ct.models.CompiledMLModel(
+            compiled_model_path, 
+            compute_units=compute_unit
+        )
+        ct_model.predict(coreml_dummy_input)
+        self.context_manager = ModelContextManager(ct_model)
+        return self.context_manager
+    
+    def run(
+        self,
+        model_iterations=None
+    ) -> Dict:
+        if self.context_manager is None or not self.context_manager.inside_context:
+            print("Error: `run` must be called inside `setup_run` context")
+            raise Exception("`run` must be called inside `setup_run` context")
+        if model_iterations is None:
+            model_iterations = self.recommended_iterations()
+        coreml_dummy_input = self.coreml_example_input()
+
+        ct_model = self.context_manager.model
+        for _ in range(model_iterations):
+            ct_model.predict(coreml_dummy_input)
+
+        return model_iterations
+
+
+
+
