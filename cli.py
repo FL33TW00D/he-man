@@ -7,6 +7,7 @@ from src.models import (
     DetrResnet,
     DistilBert,
     DistilBertANE,
+    Mistral7B,
 )
 from src.shared.runtime_analyzer import ModelRuntimeAnalyzer
 
@@ -21,12 +22,13 @@ import torch
 
 def main():
     models_list = [
-        BlipCaption,
-        DepthPro,
-        FastVit,
-        DetrResnet,
-        DistilBert,
-        DistilBertANE,
+        # BlipCaption,
+        # DepthPro,
+        # FastVit,
+        # DetrResnet,
+        # DistilBert,
+        # DistilBertANE,
+        Mistral7B,
     ]
 
     parser = argparse.ArgumentParser(
@@ -110,8 +112,8 @@ def main():
         # coreml stuff
         print("Obtaining Core ML model...")
         ct_model = model.coreml_model()
-        compiled_model_path = ct_model.get_compiled_model_path()
-        copytree(compiled_model_path, "ct_model.mlmodelc", dirs_exist_ok=True)
+        # compiled_model_path = ct_model.get_compiled_model_path()
+        # copytree(compiled_model_path, "ct_model.mlmodelc", dirs_exist_ok=True)
         print("Finished obtaining Core ML model.")
 
         coreml_dummy_input = model.coreml_example_input()
@@ -123,8 +125,8 @@ def main():
             (ct.ComputeUnit.ALL, "CPU + GPU + ANE"),
         ]:
             print(f"Starting {name} power runtime analysis...")
-            ct_model = ct.models.CompiledMLModel(
-                "ct_model.mlmodelc", compute_units=compute_unit
+            ct_model = ct.models.MLModel(
+                "ct_model.mlpackage", compute_units=compute_unit
             )
             model_iterations = (
                 model.recommended_iterations()

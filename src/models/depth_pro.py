@@ -76,12 +76,13 @@ class DepthProInvDepthNormalized(DepthProWrapper):
 
 
 class DepthPro(Model):
+    @staticmethod
     def name():
         return "apple/DepthPro-mixin"
 
     def recommended_iterations(self) -> int:
         return 10
-    
+
     def __init__(self):
         super().__init__()
 

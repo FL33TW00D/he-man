@@ -27,18 +27,17 @@ class Wrapper(torch.nn.Module):
 
 
 class BlipCaption(Model):
+    @staticmethod
     def name() -> str:
         return "Salesforce/blip-image-captioning-base"
 
     def recommended_iterations(self) -> int:
         return 100
-    
+
     def __init__(self):
         super().__init__()
 
-        self.processor = BlipProcessor.from_pretrained(
-            BlipCaption.name()
-        )
+        self.processor = BlipProcessor.from_pretrained(BlipCaption.name())
         self.raw_model = BlipForConditionalGeneration.from_pretrained(
             BlipCaption.name()
         )
@@ -46,7 +45,9 @@ class BlipCaption(Model):
 
     def torch_example_input(
         self,
-    ) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, torch.Tensor], Tuple[torch.Tensor]]:
+    ) -> Union[
+        torch.Tensor, List[torch.Tensor], Dict[str, torch.Tensor], Tuple[torch.Tensor]
+    ]:
         img_url = (
             "https://storage.googleapis.com/sfr-vision-language-research/BLIP/demo.jpg"
         )

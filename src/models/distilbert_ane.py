@@ -7,18 +7,15 @@ import torch.nn as nn
 import numpy as np
 from transformers.models.distilbert import modeling_distilbert
 
+
 class LayerNormANE(nn.Module):
-    """ LayerNorm optimized for Apple Neural Engine (ANE) execution
+    """LayerNorm optimized for Apple Neural Engine (ANE) execution
 
     Note: This layer only supports normalization over the final dim. It expects `num_channels`
     as an argument and not `normalized_shape` which is used by `torch.nn.LayerNorm`.
     """
 
-    def __init__(self,
-                 num_channels,
-                 clip_mag=None,
-                 eps=1e-5,
-                 elementwise_affine=True):
+    def __init__(self, num_channels, clip_mag=None, eps=1e-5, elementwise_affine=True):
         """
         Args:
             num_channels:       Number of channels (C) where the expected input data format is BC1S. S stands for sequence length.
@@ -29,7 +26,7 @@ class LayerNormANE(nn.Module):
         """
         super().__init__()
         # Principle 1: Picking the Right Data Format (machinelearning.apple.com/research/apple-neural-engine)
-        self.expected_rank = len('BC1S')
+        self.expected_rank = len("BC1S")
 
         self.num_channels = num_channels
         self.eps = eps
@@ -73,8 +70,9 @@ class LayerNormANE(nn.Module):
         out = zero_mean * denom
 
         if self.elementwise_affine:
-            out = (out + self.bias.view(1, self.num_channels, 1, 1)
-                   ) * self.weight.view(1, self.num_channels, 1, 1)
+            out = (out + self.bias.view(1, self.num_channels, 1, 1)) * self.weight.view(
+                1, self.num_channels, 1, 1
+            )
 
         return out
 
@@ -83,92 +81,98 @@ class LayerNormANE(nn.Module):
 # which is not friendly with the float16 precision that ANE uses by default
 EPS = 1e-7
 
-WARN_MSG_FOR_TRAINING_ATTEMPT = \
-    "This model is optimized for on-device execution only. " \
+WARN_MSG_FOR_TRAINING_ATTEMPT = (
+    "This model is optimized for on-device execution only. "
     "Please use the original implementation from Hugging Face for training"
+)
 
-WARN_MSG_FOR_DICT_RETURN = \
+WARN_MSG_FOR_DICT_RETURN = (
     "coremltools does not support dict outputs. Please set return_dict=False"
+)
 
 
 # Note: torch.nn.LayerNorm and ane_transformers.reference.layer_norm.LayerNormANE
 # apply scale and bias terms in opposite orders. In order to accurately restore a
 # state_dict trained using the former into the the latter, we adjust the bias term
-def correct_for_bias_scale_order_inversion(state_dict, prefix, local_metadata,
-                                           strict, missing_keys,
-                                           unexpected_keys, error_msgs):
-    state_dict[prefix +
-               'bias'] = state_dict[prefix + 'bias'] / state_dict[prefix +
-                                                                  'weight']
+def correct_for_bias_scale_order_inversion(
+    state_dict,
+    prefix,
+    local_metadata,
+    strict,
+    missing_keys,
+    unexpected_keys,
+    error_msgs,
+):
+    state_dict[prefix + "bias"] = (
+        state_dict[prefix + "bias"] / state_dict[prefix + "weight"]
+    )
     return state_dict
 
 
 class LayerNormANE(LayerNormANE):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._register_load_state_dict_pre_hook(
-            correct_for_bias_scale_order_inversion)
+        self._register_load_state_dict_pre_hook(correct_for_bias_scale_order_inversion)
 
 
 class Embeddings(modeling_distilbert.Embeddings):
-    """ Embeddings module optimized for Apple Neural Engine
-    """
+    """Embeddings module optimized for Apple Neural Engine"""
 
     def __init__(self, config):
         super().__init__(config)
-        setattr(self, 'LayerNorm', LayerNormANE(config.dim, eps=EPS))
+        setattr(self, "LayerNorm", LayerNormANE(config.dim, eps=EPS))
 
 
 class MultiHeadSelfAttention(modeling_distilbert.MultiHeadSelfAttention):
-    """ MultiHeadSelfAttention module optimized for Apple Neural Engine
-    """
+    """MultiHeadSelfAttention module optimized for Apple Neural Engine"""
 
     def __init__(self, config):
         super().__init__(config)
 
         setattr(
-            self, 'q_lin',
+            self,
+            "q_lin",
             nn.Conv2d(
                 in_channels=config.dim,
                 out_channels=config.dim,
                 kernel_size=1,
-            ))
+            ),
+        )
 
         setattr(
-            self, 'k_lin',
+            self,
+            "k_lin",
             nn.Conv2d(
                 in_channels=config.dim,
                 out_channels=config.dim,
                 kernel_size=1,
-            ))
+            ),
+        )
 
         setattr(
-            self, 'v_lin',
+            self,
+            "v_lin",
             nn.Conv2d(
                 in_channels=config.dim,
                 out_channels=config.dim,
                 kernel_size=1,
-            ))
+            ),
+        )
 
         setattr(
-            self, 'out_lin',
+            self,
+            "out_lin",
             nn.Conv2d(
                 in_channels=config.dim,
                 out_channels=config.dim,
                 kernel_size=1,
-            ))
+            ),
+        )
 
     def prune_heads(self, heads):
         raise NotImplementedError
 
-    def forward(self,
-                query,
-                key,
-                value,
-                mask,
-                head_mask=None,
-                output_attentions=False):
+    def forward(self, query, key, value, mask, head_mask=None, output_attentions=False):
         """
         Parameters:
             query: torch.tensor(bs, dim, 1, seq_length)
@@ -181,8 +185,9 @@ class MultiHeadSelfAttention(modeling_distilbert.MultiHeadSelfAttention):
             dim, 1, seq_length) Contextualized layer. Optional: only if `output_attentions=True`
         """
         # Parse tensor shapes for source and target sequences
-        assert len(query.size()) == 4 and len(key.size()) == 4 and len(
-            value.size()) == 4
+        assert (
+            len(query.size()) == 4 and len(key.size()) == 4 and len(value.size()) == 4
+        )
 
         bs, dim, dummy, seqlen = query.size()
         # assert seqlen == key.size(3) and seqlen == value.size(3)
@@ -218,18 +223,18 @@ class MultiHeadSelfAttention(modeling_distilbert.MultiHeadSelfAttention):
         # Compute scaled dot-product attention
         dim_per_head = self.dim // self.n_heads
         mh_q = q.split(
-            dim_per_head,
-            dim=1)  # (bs, dim_per_head, 1, max_seq_length) * n_heads
+            dim_per_head, dim=1
+        )  # (bs, dim_per_head, 1, max_seq_length) * n_heads
         mh_k = k.transpose(1, 3).split(
-            dim_per_head,
-            dim=3)  # (bs, max_seq_length, 1, dim_per_head) * n_heads
+            dim_per_head, dim=3
+        )  # (bs, max_seq_length, 1, dim_per_head) * n_heads
         mh_v = v.split(
-            dim_per_head,
-            dim=1)  # (bs, dim_per_head, 1, max_seq_length) * n_heads
+            dim_per_head, dim=1
+        )  # (bs, dim_per_head, 1, max_seq_length) * n_heads
 
-        normalize_factor = float(dim_per_head)**-0.5
+        normalize_factor = float(dim_per_head) ** -0.5
         attn_weights = [
-            torch.einsum('bchq,bkhc->bkhq', [qi, ki]) * normalize_factor
+            torch.einsum("bchq,bkhc->bkhq", [qi, ki]) * normalize_factor
             for qi, ki in zip(mh_q, mh_k)
         ]  # (bs, max_seq_length, 1, max_seq_length) * n_heads
 
@@ -237,10 +242,11 @@ class MultiHeadSelfAttention(modeling_distilbert.MultiHeadSelfAttention):
             for head_idx in range(self.n_heads):
                 attn_weights[head_idx] = attn_weights[head_idx] + mask
 
-        attn_weights = [aw.softmax(dim=1) for aw in attn_weights
-                        ]  # (bs, max_seq_length, 1, max_seq_length) * n_heads
+        attn_weights = [
+            aw.softmax(dim=1) for aw in attn_weights
+        ]  # (bs, max_seq_length, 1, max_seq_length) * n_heads
         attn = [
-            torch.einsum('bkhq,bchk->bchq', wi, vi)
+            torch.einsum("bkhq,bchk->bchq", wi, vi)
             for wi, vi in zip(attn_weights, mh_v)
         ]  # (bs, dim_per_head, 1, max_seq_length) * n_heads
 
@@ -251,60 +257,61 @@ class MultiHeadSelfAttention(modeling_distilbert.MultiHeadSelfAttention):
         if output_attentions:
             return attn, attn_weights.cat(dim=2)
         else:
-            return (attn, )
+            return (attn,)
 
 
 class FFN(modeling_distilbert.FFN):
-    """ FFN module optimized for Apple Neural Engine
-    """
+    """FFN module optimized for Apple Neural Engine"""
 
     def __init__(self, config):
         super().__init__(config)
         self.seq_len_dim = 3
 
         setattr(
-            self, 'lin1',
+            self,
+            "lin1",
             nn.Conv2d(
                 in_channels=config.dim,
                 out_channels=config.hidden_dim,
                 kernel_size=1,
-            ))
+            ),
+        )
 
         setattr(
-            self, 'lin2',
+            self,
+            "lin2",
             nn.Conv2d(
                 in_channels=config.hidden_dim,
                 out_channels=config.dim,
                 kernel_size=1,
-            ))
+            ),
+        )
 
 
 class TransformerBlock(modeling_distilbert.TransformerBlock):
-
     def __init__(self, config):
         super().__init__(config)
-        setattr(self, 'attention', MultiHeadSelfAttention(config))
-        setattr(self, 'sa_layer_norm', LayerNormANE(config.dim, eps=EPS))
-        setattr(self, 'ffn', FFN(config))
-        setattr(self, 'output_layer_norm', LayerNormANE(config.dim, eps=EPS))
+        setattr(self, "attention", MultiHeadSelfAttention(config))
+        setattr(self, "sa_layer_norm", LayerNormANE(config.dim, eps=EPS))
+        setattr(self, "ffn", FFN(config))
+        setattr(self, "output_layer_norm", LayerNormANE(config.dim, eps=EPS))
 
 
 class Transformer(modeling_distilbert.Transformer):
-
     def __init__(self, config):
         super().__init__(config)
         setattr(
-            self, 'layer',
-            nn.ModuleList(
-                [TransformerBlock(config) for _ in range(config.n_layers)]))
+            self,
+            "layer",
+            nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)]),
+        )
 
 
 class DistilBertModel(modeling_distilbert.DistilBertModel):
-
     def __init__(self, config):
         super().__init__(config)
-        setattr(self, 'embeddings', Embeddings(config))
-        setattr(self, 'transformer', Transformer(config))
+        setattr(self, "embeddings", Embeddings(config))
+        setattr(self, "transformer", Transformer(config))
 
         # Register hook for unsqueezing nn.Linear parameters to match nn.Conv2d parameter spec
         self._register_load_state_dict_pre_hook(linear_to_conv2d_map)
@@ -314,15 +321,15 @@ class DistilBertModel(modeling_distilbert.DistilBertModel):
     def _prune_heads(self, heads_to_prune):
         raise NotImplementedError
 
-class DistilBertForSequenceClassification(
-        modeling_distilbert.DistilBertForSequenceClassification):
 
+class DistilBertForSequenceClassification(
+    modeling_distilbert.DistilBertForSequenceClassification
+):
     def __init__(self, config):
         super().__init__(config)
-        setattr(self, 'distilbert', DistilBertModel(config))
-        setattr(self, 'pre_classifier', nn.Conv2d(config.dim, config.dim, 1))
-        setattr(self, 'classifier', nn.Conv2d(config.dim, config.num_labels,
-                                              1))
+        setattr(self, "distilbert", DistilBertModel(config))
+        setattr(self, "pre_classifier", nn.Conv2d(config.dim, config.dim, 1))
+        setattr(self, "classifier", nn.Conv2d(config.dim, config.num_labels, 1))
 
     def forward(
         self,
@@ -338,7 +345,9 @@ class DistilBertForSequenceClassification(
         if labels is not None or self.training:
             raise NotImplementedError(WARN_MSG_FOR_TRAINING_ATTEMPT)
 
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
         if return_dict:
             raise ValueError(WARN_MSG_FOR_DICT_RETURN)
 
@@ -358,62 +367,79 @@ class DistilBertForSequenceClassification(
         logits = self.classifier(pooled_output)  # (bs, num_labels, 1, 1)
         logits = logits.squeeze(-1).squeeze(-1)  # (bs, num_labels)
 
-        output = (logits, ) + distilbert_output[1:]
+        output = (logits,) + distilbert_output[1:]
         loss = None
 
-        return ((loss, ) + output) if loss is not None else output
+        return ((loss,) + output) if loss is not None else output
 
 
-def linear_to_conv2d_map(state_dict, prefix, local_metadata, strict,
-                         missing_keys, unexpected_keys, error_msgs):
-    """ Unsqueeze twice to map nn.Linear weights to nn.Conv2d weights
-    """
+def linear_to_conv2d_map(
+    state_dict,
+    prefix,
+    local_metadata,
+    strict,
+    missing_keys,
+    unexpected_keys,
+    error_msgs,
+):
+    """Unsqueeze twice to map nn.Linear weights to nn.Conv2d weights"""
     for k in state_dict:
-        is_internal_proj = all(substr in k for substr in ['lin', '.weight'])
-        is_output_proj = all(substr in k
-                             for substr in ['classifier', '.weight'])
+        is_internal_proj = all(substr in k for substr in ["lin", ".weight"])
+        is_output_proj = all(substr in k for substr in ["classifier", ".weight"])
         if is_internal_proj or is_output_proj:
             if len(state_dict[k].shape) == 2:
                 state_dict[k] = state_dict[k][:, :, None, None]
 
+
 class DistilBertANE(DistilBert):
+    @staticmethod
     def name():
         return super(DistilBertANE, DistilBertANE).name() + "(ANE)"
 
     def recommended_iterations(self) -> int:
         return 1000
-    
+
     def __init__(self):
         super().__init__()
 
         self.baseline_model = self.model
 
-        self.model = DistilBertForSequenceClassification(self.baseline_model.config).eval()
+        self.model = DistilBertForSequenceClassification(
+            self.baseline_model.config
+        ).eval()
 
         state_dict = self.baseline_model.state_dict()
 
-        if 'pre_classifier.weight' in state_dict:
-            state_dict['pre_classifier.weight'] = state_dict['pre_classifier.weight'].unsqueeze(-1).unsqueeze(-1)
+        if "pre_classifier.weight" in state_dict:
+            state_dict["pre_classifier.weight"] = (
+                state_dict["pre_classifier.weight"].unsqueeze(-1).unsqueeze(-1)
+            )
 
         # Adjust weights for `classifier`
-        if 'classifier.weight' in state_dict:
-            state_dict['classifier.weight'] = state_dict['classifier.weight'].unsqueeze(-1).unsqueeze(-1)
+        if "classifier.weight" in state_dict:
+            state_dict["classifier.weight"] = (
+                state_dict["classifier.weight"].unsqueeze(-1).unsqueeze(-1)
+            )
 
-        self.model.load_state_dict(state_dict) 
+        self.model.load_state_dict(state_dict)
 
     def torch_example_input(
         self,
     ) -> Union[torch.Tensor, List[torch.Tensor], Dict[str, torch.Tensor]]:
-        return (self.tokenized["input_ids"], self.tokenized["attention_mask"], )
+        return (
+            self.tokenized["input_ids"],
+            self.tokenized["attention_mask"],
+        )
 
     def coreml_inputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
         return [
             ct.TensorType(
                 f"input_{name}",
-                    shape=tensor.shape,
-                    dtype=np.int32,
-                ) for name, tensor in self.tokenized.items()
-            ]
+                shape=tensor.shape,
+                dtype=np.int32,
+            )
+            for name, tensor in self.tokenized.items()
+        ]
 
     def coreml_outputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
         return None

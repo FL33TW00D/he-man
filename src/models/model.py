@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Dict, List, Union, Any
+from typing import Dict, List, Optional, Union, Any
 
 import torch
 import coremltools as ct
@@ -13,6 +13,7 @@ class Model:
         self.cached_torch_trace = None
         self.cached_coreml_model = None
 
+    @staticmethod
     @abstractmethod
     def name() -> str:
         pass
@@ -52,9 +53,11 @@ class Model:
         ct_model = ct.convert(
             self.torch_module(),
             inputs=self.coreml_inputs(),
+            states=self.coreml_states(),
             outputs=self.coreml_outputs(),
             minimum_deployment_target=ct.target.iOS18,
             compute_precision=ct.precision.FLOAT16,
+            skip_model_load=True,
         )
 
         self.cached_coreml_model = ct_model
@@ -63,6 +66,10 @@ class Model:
 
     @abstractmethod
     def coreml_inputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
+        pass
+
+    @abstractmethod
+    def coreml_states(self) -> Optional[List[ct.StateType]]:
         pass
 
     @abstractmethod
