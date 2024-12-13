@@ -21,12 +21,12 @@ import torch
 
 def main():
     models_list = [
-        BlipCaption,
-        DepthPro,
-        FastVit,
-        DetrResnet,
+        # BlipCaption,
+        # DepthPro,
+        # FastVit,
+        # DetrResnet,
         DistilBert,
-        DistilBertANE,
+        # DistilBertANE,
     ]
 
     parser = argparse.ArgumentParser(
@@ -111,7 +111,6 @@ def main():
         print("Obtaining Core ML model...")
         ct_model = model.coreml_model()
         compiled_model_path = ct_model.get_compiled_model_path()
-        copytree(compiled_model_path, "ct_model.mlmodelc", dirs_exist_ok=True)
         print("Finished obtaining Core ML model.")
 
         coreml_dummy_input = model.coreml_example_input()
@@ -124,7 +123,7 @@ def main():
         ]:
             print(f"Starting {name} power runtime analysis...")
             ct_model = ct.models.CompiledMLModel(
-                "ct_model.mlmodelc", compute_units=compute_unit
+                compiled_model_path, compute_units=compute_unit
             )
             model_iterations = (
                 model.recommended_iterations()
