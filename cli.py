@@ -20,12 +20,12 @@ import torch
 
 def main():
     models_list = [
-        # BlipCaption,
-        # DepthPro,
-        # FastVit,
-        # DetrResnet,
+        BlipCaption,
+        DepthPro,
+        FastVit,
+        DetrResnet,
         DistilBert,
-        # DistilBertANE,
+        DistilBertANE,
     ]
 
     parser = argparse.ArgumentParser(
@@ -112,6 +112,7 @@ def main():
             (ct.ComputeUnit.CPU_AND_NE, "CPU + ANE"),
             (ct.ComputeUnit.ALL, "CPU + GPU + ANE"),
         ]:
+            print(f"Starting {name} power runtime analysis...")
             with model.setup_run(compute_unit=compute_unit), Profiler(sample_duration=sample_duration, num_samples=num_samples) as profiler:
                 model_iterations = model.run(model_iterations=args.model_iterations)
 
