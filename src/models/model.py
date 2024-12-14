@@ -7,16 +7,18 @@ from PIL import Image
 import numpy as np
 import warnings
 
+
 class ModelContextManager:
     def __init__(self, model):
         self.inside_context = False
         self.model = model
-    
+
     def __enter__(self):
         self.inside_context = True
 
     def __exit__(self, *_):
         self.inside_context = False
+
 
 class Model:
     def __init__(self):
@@ -84,7 +86,7 @@ class Model:
     def coreml_example_input(self) -> Dict[str, Any]:
         if self.cached_coreml_input:
             return self.cached_coreml_input
-        
+
         inputs = {}
 
         ct_model = self.coreml_model()
@@ -123,25 +125,18 @@ class Model:
         self.cached_coreml_input = inputs
 
         return inputs
-    
-    def setup_run(
-        self, 
-        compute_unit=ct.ComputeUnit.ALL
-    ) -> ModelContextManager:
+
+    def setup_run(self, compute_unit=ct.ComputeUnit.ALL) -> ModelContextManager:
         coreml_dummy_input = self.coreml_example_input()
         compiled_model_path = self.coreml_model().get_compiled_model_path()
         ct_model = ct.models.CompiledMLModel(
-            compiled_model_path, 
-            compute_units=compute_unit
+            compiled_model_path, compute_units=compute_unit
         )
         ct_model.predict(coreml_dummy_input)
         self.context_manager = ModelContextManager(ct_model)
         return self.context_manager
-    
-    def run(
-        self,
-        model_iterations=None
-    ) -> Dict:
+
+    def run(self, model_iterations=None):
         if self.context_manager is None or not self.context_manager.inside_context:
             print("Error: `run` must be called inside `setup_run` context")
             raise Exception("`run` must be called inside `setup_run` context")
@@ -154,7 +149,3 @@ class Model:
             ct_model.predict(coreml_dummy_input)
 
         return model_iterations
-
-
-
-
