@@ -190,7 +190,7 @@ class Mistral7B(Model):
         input_ids: torch.Tensor = torch.zeros((1, 2), dtype=torch.int32)
         causal_mask: torch.Tensor = torch.zeros((1, 1, 2, 5), dtype=torch.float32)
 
-        return (input_ids, causal_mask)
+        return [input_ids, causal_mask]
 
     def coreml_example_input(
         self,

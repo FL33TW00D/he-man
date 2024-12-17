@@ -50,11 +50,22 @@ class Model:
         if self.cached_coreml_model:
             return self.cached_coreml_model
 
+        module = self.torch_module()
+        inputs = self.coreml_inputs()
+        states = self.coreml_states()
+        outputs = self.coreml_outputs()
+
+        print("Converting model to Core ML...")
+        print(f"Module: {module}")
+        print(f"Inputs: {inputs}")
+        print(f"States: {states}")
+        print(f"Outputs: {outputs}")
+
         ct_model = ct.convert(
-            self.torch_module(),
-            inputs=self.coreml_inputs(),
-            states=self.coreml_states(),
-            outputs=self.coreml_outputs(),
+            module,
+            inputs=inputs,
+            states=states,
+            outputs=outputs,
             minimum_deployment_target=ct.target.iOS18,
             compute_precision=ct.precision.FLOAT16,
             skip_model_load=True,
