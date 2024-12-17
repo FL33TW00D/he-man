@@ -108,6 +108,7 @@ def main():
 
         print("Obtaining Core ML model...")
         ct_model = model.coreml_model()
+        ct_model.save("ct_model.mlpackage")
         # compiled_model_path = ct_model.get_compiled_model_path()
         # copytree(compiled_model_path, "ct_model.mlmodelc", dirs_exist_ok=True)
         print("Finished obtaining Core ML model.")

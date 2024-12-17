@@ -101,8 +101,8 @@ class SliceUpdateMistralAttention(MistralAttention):
             slice_indices=(end_step - q_len, end_step),
         )
 
-        key_states = repeat_kv(key_states, self.num_key_value_groups).to(query_states.dtype)
-        value_states = repeat_kv(value_states, self.num_key_value_groups).to(value_states.dtype)
+        key_states = repeat_kv(key_states, self.num_key_value_groups).to(torch.float16)
+        value_states = repeat_kv(value_states, self.num_key_value_groups).to(torch.float16)
 
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_states,
@@ -169,20 +169,10 @@ class Mistral7B(Model):
         super().__init__()
         self.max_context_size = 2048
 
-        self.model = StatefulMistralForCausalLM(
-            Mistral7B.name(), max_context_size=self.max_context_size
-        ).eval()
+        torch_model = StatefulMistralForCausalLM(Mistral7B.name(), max_context_size=self.max_context_size)
+        torch_model.eval()
 
-        original_tokenizer_parallel = (
-            os.environ["TOKENIZERS_PARALLELISM"]
-            if "TOKENIZERS_PARALLELISM" in os.environ
-            else "true"
-        )
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-        self.tokenizer = AutoTokenizer.from_pretrained(Mistral7B.name())
-        self.tokenizer.pad_token = self.tokenizer.unk_token
-        os.environ["TOKENIZERS_PARALLELISM"] = original_tokenizer_parallel
+        self.model = torch_model
 
     def torch_example_input(
         self,

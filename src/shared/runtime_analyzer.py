@@ -91,6 +91,8 @@ class ModelRuntimeAnalyzer:
         with flop_counter:
             if isinstance(inp, torch.Tensor):
                 self.model(inp)
+            elif isinstance(inp, list):
+                self.model(*inp)
             elif isinstance(inp, tuple):
                 self.model(*inp)
             else:

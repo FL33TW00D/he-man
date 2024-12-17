@@ -64,10 +64,9 @@ class Model:
         ct_model = ct.convert(
             module,
             inputs=inputs,
-            states=states,
             outputs=outputs,
+            states=states,
             minimum_deployment_target=ct.target.iOS18,
-            compute_precision=ct.precision.FLOAT16,
             skip_model_load=True,
         )
 
