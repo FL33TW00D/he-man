@@ -99,17 +99,13 @@ def main():
 
         model = m()
 
-        print("Obtaining torch model...")
-        module = model.torch_module()
-        print("Finished obtaining torch module.")
-
         print("Starting torch runtime analysis...")
         dummy_input = model.torch_example_input()
-        analyzer = ModelRuntimeAnalyzer(module)
+        analyzer = ModelRuntimeAnalyzer(model.torch_module())
         torch_runtime_stats = analyzer.analyze(dummy_input)
         print("Finished torch runtime analysis.")
+        model.clean_torch_cache()
 
-        # coreml stuff
         print("Obtaining Core ML model...")
         ct_model = model.coreml_model()
         # compiled_model_path = ct_model.get_compiled_model_path()

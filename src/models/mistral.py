@@ -23,7 +23,7 @@ class SliceUpdateKeyValueCache(Cache):
         self,
         shape: Tuple[int, ...],
         device="cpu",
-        dtype=torch.float32,
+        dtype=torch.float16,
     ) -> None:
         """KV cache of shape (#layers, batch_size, #kv_heads, context_size, head_dim)."""
         super().__init__()
@@ -101,8 +101,8 @@ class SliceUpdateMistralAttention(MistralAttention):
             slice_indices=(end_step - q_len, end_step),
         )
 
-        key_states = repeat_kv(key_states, self.num_key_value_groups)
-        value_states = repeat_kv(value_states, self.num_key_value_groups)
+        key_states = repeat_kv(key_states, self.num_key_value_groups).to(query_states.dtype)
+        value_states = repeat_kv(value_states, self.num_key_value_groups).to(value_states.dtype)
 
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_states,
@@ -126,7 +126,7 @@ class StatefulMistralForCausalLM(torch.nn.Module):
         # Custom attention implementation for stateful slice update key/value cache, override
         # "sdpa" to compliance with transformers.modeling_utils._autoset_attn_implementation
         MISTRAL_ATTENTION_CLASSES["sdpa"] = SliceUpdateMistralAttention
-        self.model = MistralForCausalLM.from_pretrained(model_path)
+        self.model = MistralForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16)
 
         # Register KV cache buffers to be recognized as Core ML states
         config: MistralConfig = self.model.config
@@ -182,12 +182,6 @@ class Mistral7B(Model):
 
         self.tokenizer = AutoTokenizer.from_pretrained(Mistral7B.name())
         self.tokenizer.pad_token = self.tokenizer.unk_token
-        self.tokenized = self.tokenizer(
-            ["Sample input text to trace the model"],
-            return_tensors="pt",
-            max_length=128,  # token sequence length
-            padding="max_length",
-        )
         os.environ["TOKENIZERS_PARALLELISM"] = original_tokenizer_parallel
 
     def torch_example_input(
@@ -197,6 +191,14 @@ class Mistral7B(Model):
         causal_mask: torch.Tensor = torch.zeros((1, 1, 2, 5), dtype=torch.float32)
 
         return (input_ids, causal_mask)
+
+    def coreml_example_input(
+        self,
+    ) -> Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]:
+        input_ids: np.ndarray = np.zeros((1, 2), dtype=np.int32)
+        causal_mask: np.ndarray = np.zeros((1, 1, 2, 5), dtype=np.float16)
+
+        return {"input_ids": input_ids, "attention_mask": causal_mask}
 
     def coreml_inputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
         query_length = ct.RangeDim(

@@ -113,3 +113,6 @@ class Model:
                 raise Exception(f"Could not determine input type for {input_name}")
 
         return inputs
+
+    def clean_torch_cache(self):
+        self.cached_torch_trace = None
