@@ -15,7 +15,6 @@ import argparse
 import csv
 import coremltools as ct
 from wattkit import Profiler
-from shutil import copytree
 import time
 import torch
 
@@ -48,7 +47,7 @@ def main():
         "--model-iterations",
         type=int,
         default=None,
-        help="The number of iterations for the model. Must be a positive integer.",
+        help="Override the recommended number of iterations for all the models being run. Must be a positive integer.",
     )
 
     parser.add_argument(
@@ -106,15 +105,6 @@ def main():
         print("Finished torch runtime analysis.")
         model.clean_torch_cache()
 
-        print("Obtaining Core ML model...")
-        ct_model = model.coreml_model()
-        ct_model.save("ct_model.mlpackage")
-        # compiled_model_path = ct_model.get_compiled_model_path()
-        # copytree(compiled_model_path, "ct_model.mlmodelc", dirs_exist_ok=True)
-        print("Finished obtaining Core ML model.")
-
-        coreml_dummy_input = model.coreml_example_input()
-
         for compute_unit, name in [
             (ct.ComputeUnit.CPU_ONLY, "CPU"),
             (ct.ComputeUnit.CPU_AND_GPU, "CPU + GPU"),
@@ -122,20 +112,14 @@ def main():
             (ct.ComputeUnit.ALL, "CPU + GPU + ANE"),
         ]:
             print(f"Starting {name} power runtime analysis...")
-            ct_model = ct.models.MLModel(
-                "ct_model.mlpackage", compute_units=compute_unit
-            )
-            model_iterations = (
-                model.recommended_iterations()
-                if args.model_iterations is None
-                else args.model_iterations
-            )
-            ct_model.predict(coreml_dummy_input)  # Once before to "warm up" hardware
-            with Profiler(
-                sample_duration=sample_duration, num_samples=num_samples
-            ) as profiler:
-                for _ in range(model_iterations):
-                    ct_model.predict(coreml_dummy_input)
+            with (
+                model.setup_run(compute_unit=compute_unit),
+                Profiler(
+                    sample_duration=sample_duration, num_samples=num_samples
+                ) as profiler,
+            ):
+                model_iterations = model.run(model_iterations=args.model_iterations)
+
             profile = profiler.get_profile()
             outp = [
                 str(x)
