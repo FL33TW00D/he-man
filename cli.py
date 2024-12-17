@@ -7,6 +7,7 @@ from src.models import (
     DetrResnet,
     DistilBert,
     DistilBertANE,
+    Mistral7B,
 )
 from src.shared.runtime_analyzer import ModelRuntimeAnalyzer
 
@@ -20,12 +21,13 @@ import torch
 
 def main():
     models_list = [
-        BlipCaption,
-        DepthPro,
-        FastVit,
-        DetrResnet,
-        DistilBert,
-        DistilBertANE,
+        # BlipCaption,
+        # DepthPro,
+        # FastVit,
+        # DetrResnet,
+        # DistilBert,
+        # DistilBertANE,
+        Mistral7B,
     ]
 
     parser = argparse.ArgumentParser(
@@ -96,15 +98,12 @@ def main():
 
         model = m()
 
-        print("Obtaining torch model...")
-        module = model.torch_module()
-        print("Finished obtaining torch module.")
-
         print("Starting torch runtime analysis...")
         dummy_input = model.torch_example_input()
-        analyzer = ModelRuntimeAnalyzer(module)
+        analyzer = ModelRuntimeAnalyzer(model.torch_module())
         torch_runtime_stats = analyzer.analyze(dummy_input)
         print("Finished torch runtime analysis.")
+        model.clean_torch_cache()
 
         for compute_unit, name in [
             (ct.ComputeUnit.CPU_ONLY, "CPU"),
