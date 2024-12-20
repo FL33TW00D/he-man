@@ -2,7 +2,7 @@ from .model import Model
 
 import os
 import torch
-from typing import Optional, Union, List, Dict, Tuple
+from typing import Any, Optional, Union, List, Dict, Tuple
 import numpy as np
 import coremltools as ct
 
@@ -102,7 +102,9 @@ class SliceUpdateMistralAttention(MistralAttention):
         )
 
         key_states = repeat_kv(key_states, self.num_key_value_groups).to(torch.float16)
-        value_states = repeat_kv(value_states, self.num_key_value_groups).to(torch.float16)
+        value_states = repeat_kv(value_states, self.num_key_value_groups).to(
+            torch.float16
+        )
 
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_states,
@@ -126,7 +128,9 @@ class StatefulMistralForCausalLM(torch.nn.Module):
         # Custom attention implementation for stateful slice update key/value cache, override
         # "sdpa" to compliance with transformers.modeling_utils._autoset_attn_implementation
         MISTRAL_ATTENTION_CLASSES["sdpa"] = SliceUpdateMistralAttention
-        self.model = MistralForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16)
+        self.model = MistralForCausalLM.from_pretrained(
+            model_path, torch_dtype=torch.float16
+        )
 
         # Register KV cache buffers to be recognized as Core ML states
         config: MistralConfig = self.model.config
@@ -168,11 +172,15 @@ class Mistral7B(Model):
     def __init__(self):
         super().__init__()
         self.max_context_size = 2048
+        self.num_past_tokens = 1
 
-        torch_model = StatefulMistralForCausalLM(Mistral7B.name(), max_context_size=self.max_context_size)
+        torch_model = StatefulMistralForCausalLM(
+            Mistral7B.name(), max_context_size=self.max_context_size
+        )
         torch_model.eval()
 
         self.model = torch_model
+        print("SELF MODEL:", self.model)
 
     def torch_example_input(
         self,
@@ -182,15 +190,23 @@ class Mistral7B(Model):
 
         return [input_ids, causal_mask]
 
-    def coreml_example_input(
+    def coreml_sample_input(
         self,
-    ) -> Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]:
-        input_ids: np.ndarray = np.zeros((1, 2), dtype=np.int32)
-        causal_mask: np.ndarray = np.zeros((1, 1, 2, 5), dtype=np.float16)
+    ) -> Dict[str, Any]:
+        input_ids: np.ndarray = np.ones((1, 1), dtype=np.int32)
+        causal_mask: np.ndarray = np.triu(
+            np.full(
+                (1, 1, input_ids.shape[-1], self.num_past_tokens + input_ids.shape[-1]),
+                fill_value=-np.inf if self.num_past_tokens == 0 else 0,
+            ),
+            k=1,
+        ).astype(np.float16)
+
+        self.num_past_tokens += input_ids.shape[-1]
 
         return {"input_ids": input_ids, "attention_mask": causal_mask}
 
-    def coreml_inputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
+    def coreml_conversion_inputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
         query_length = ct.RangeDim(
             lower_bound=1, upper_bound=self.max_context_size, default=1
         )
@@ -221,3 +237,12 @@ class Mistral7B(Model):
 
     def coreml_outputs(self) -> List[Union[ct.TensorType, ct.ImageType]]:
         return [ct.TensorType(dtype=np.float16, name="logits")]
+
+    def coreml_profile(self, compute_units: ct.ComputeUnit, model_iterations: int):
+        ct_model = self.generate_coreml_model()
+        mlmodel = ct.models.CompiledMLModel(ct_model.get_compiled_model_path(), compute_units=compute_units)
+
+        for _ in range(model_iterations):
+            state = mlmodel.make_state()
+            input = self.coreml_sample_input()
+            mlmodel.predict(input, state=state)
