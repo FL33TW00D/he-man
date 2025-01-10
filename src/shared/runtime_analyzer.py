@@ -43,9 +43,11 @@ class ModelRuntimeAnalyzer:
     def __init__(self, model: torch.nn.Module):
         self.model = model
         self.layer_stats = defaultdict(LayerStats)
+        self.module_to_name = {mod: name for name, mod in model.named_modules()}
+        self.model_class_name = model.__class__.__name__
 
     def analyze(
-        self, inp: Union[torch.Tensor, Tuple], batch_time_seconds: float = 1.0
+        self, inp: Union[torch.Tensor, Tuple], batch_time_seconds: Optional[float] = 1.0
     ) -> ModelStats:
         """
         Analyze both computational and memory requirements of the model.
@@ -61,16 +63,14 @@ class ModelRuntimeAnalyzer:
 
         # Setup memory tracking hooks
         def count_memory_hook(module, inp, out):
-            module_name = module.__class__.__name__
+            module_name = self.model_class_name + '.' + self.module_to_name[module]
 
-            # Count input reads
             for x in inp:
                 if isinstance(x, torch.Tensor):
                     self.layer_stats[module_name].reads += (
                         x.nelement() * x.element_size()
                     )
 
-            # Count output writes
             if isinstance(out, torch.Tensor):
                 self.layer_stats[module_name].writes += (
                     out.nelement() * out.element_size()
@@ -82,26 +82,43 @@ class ModelRuntimeAnalyzer:
                             x.nelement() * x.element_size()
                         )
 
+            self.layer_stats[module_name].reads += sum(
+                x.nelement() * x.element_size()
+                for x in module.parameters()
+            )
+
         hooks = []
         for _, module in self.model.named_modules():
             hooks.append(module.register_forward_hook(count_memory_hook))
 
-        flop_counter = FlopCounterMode(display=False, depth=None)
+        flop_counter = FlopCounterMode(display=True, depth=None)
 
         with flop_counter:
             if isinstance(inp, torch.Tensor):
                 self.model(inp)
-            elif isinstance(inp, list):
-                self.model(*inp)
-            elif isinstance(inp, tuple):
+            elif isinstance(inp, list) or isinstance(inp, tuple):
                 self.model(*inp)
             else:
                 self.model(**inp)
 
-        for module_name, flop_dict in flop_counter.get_flop_counts().items():
-            # for (op_name, op_flops) in flop_dict.items():
-            #     #print(f"{module_name}::{op_name}: {op_flops}")
-            #     pass
+        flop_counts = flop_counter.get_flop_counts()
+        max_depth = max(mod_name.count('.') for mod_name in flop_counts.keys())
+        leaf_nodes = set()
+        for module_name in flop_counts.keys():
+            if "Global" in module_name:
+                continue
+
+            is_leaf = True
+            for other_name in flop_counts.keys():
+                if other_name != module_name and other_name.startswith(module_name + '.'):
+                    is_leaf = False
+                    break
+            if is_leaf:
+                leaf_nodes.add(module_name)
+
+        leaf_flops = {mod_name: flop_counts[mod_name] for mod_name in leaf_nodes}
+
+        for module_name, flop_dict in leaf_flops.items():
             total_flops = sum(flop_count for flop_count in flop_dict.values())
             self.layer_stats[module_name].flops = total_flops
 
@@ -109,7 +126,7 @@ class ModelRuntimeAnalyzer:
         total_reads = sum(stats.reads for stats in self.layer_stats.values())
         total_writes = sum(stats.writes for stats in self.layer_stats.values())
 
-        bandwidth_gb_s = ((total_reads + total_writes) / (1024**3)) / batch_time_seconds
+        bandwidth_gb_s = ((total_reads + total_writes) / (1024**3)) / batch_time_seconds # TODO: fix batch_time_seconds
         gflops = total_flops / 1e9
 
         for hook in hooks:
@@ -123,3 +140,4 @@ class ModelRuntimeAnalyzer:
             gflops=gflops,
             layer_stats=dict(self.layer_stats),
         )
+
