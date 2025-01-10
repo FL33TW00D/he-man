@@ -4,3 +4,4 @@ from src.models.fast_vit import FastVit
 from src.models.detr_resnet import DetrResnet
 from src.models.distilbert import DistilBert
 from src.models.distilbert_ane import DistilBertANE
+from src.models.mistral import Mistral7B

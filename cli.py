@@ -7,6 +7,7 @@ from src.models import (
     DetrResnet,
     DistilBert,
     DistilBertANE,
+    Mistral7B,
 )
 from src.shared.runtime_analyzer import ModelRuntimeAnalyzer
 
@@ -20,12 +21,13 @@ import torch
 
 def main():
     models_list = [
-        BlipCaption,
-        DepthPro,
-        FastVit,
-        DetrResnet,
-        DistilBert,
-        DistilBertANE,
+        Mistral7B,
+        #BlipCaption,
+        #DepthPro,
+        #FastVit,
+        #DetrResnet,
+        #DistilBert,
+        #DistilBertANE,
     ]
 
     parser = argparse.ArgumentParser(
@@ -96,16 +98,14 @@ def main():
 
         model = m()
 
-        print("Obtaining torch model...")
-        module = model.torch_module()
-        print("Finished obtaining torch module.")
-
         print("Starting torch runtime analysis...")
-        dummy_input = model.torch_example_input()
-        analyzer = ModelRuntimeAnalyzer(module)
-        torch_runtime_stats = analyzer.analyze(dummy_input)
+        analyzer = ModelRuntimeAnalyzer(model.torch_module())
+        torch_runtime_stats = analyzer.analyze(model.torch_example_input())
         print("Finished torch runtime analysis.")
+        model.clean_torch_cache()
 
+        model_iterations = model.recommended_iterations()
+        model.generate_coreml_model()
         for compute_unit, name in [
             (ct.ComputeUnit.CPU_ONLY, "CPU"),
             (ct.ComputeUnit.CPU_AND_GPU, "CPU + GPU"),
@@ -113,13 +113,8 @@ def main():
             (ct.ComputeUnit.ALL, "CPU + GPU + ANE"),
         ]:
             print(f"Starting {name} power runtime analysis...")
-            with (
-                model.setup_run(compute_unit=compute_unit),
-                Profiler(
-                    sample_duration=sample_duration, num_samples=num_samples
-                ) as profiler,
-            ):
-                model_iterations = model.run(model_iterations=args.model_iterations)
+            with Profiler(sample_duration=sample_duration, num_samples=num_samples) as profiler:
+                model.coreml_profile(compute_units=compute_unit, model_iterations=model_iterations)
 
             profile = profiler.get_profile()
             outp = [

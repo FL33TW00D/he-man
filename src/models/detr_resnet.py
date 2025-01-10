@@ -47,18 +47,17 @@ class Wrapper(torch.nn.Module):
 
 
 class DetrResnet(Model):
+    @staticmethod
     def name():
         return "facebook/detr-resnet-50-panoptic"
 
     def recommended_iterations(self) -> int:
         return 1000
-    
+
     def __init__(self):
         super().__init__()
 
-        model = AutoModelForImageSegmentation.from_pretrained(
-            DetrResnet.name()
-        )
+        model = AutoModelForImageSegmentation.from_pretrained(DetrResnet.name())
         model.eval()
 
         self.model = Wrapper(model)
